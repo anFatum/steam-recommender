@@ -48,20 +48,30 @@ class SteamData(metaclass=DataMeta):
         predictions = self.predict(game_features, game_features_matrix, match)
         print(f"Predictions for {match}")
         for i, (idx, dist) in enumerate(predictions):
-            print('{0}: {1}, with distance '
-                  'of {2}'.format(i + 1, game_features.index[idx], dist))
+            print(f'{i + 1}: {game_features.index[idx]}, with chance {dist:.2f}%')
 
     def predict_user(self, user_id):
         game_features, game_features_matrix = self.get_features_matrix(index='user_id', columns='game_title')
         predictions = self.predict(game_features, game_features_matrix, user_id)
         for i, (idx, dist) in enumerate(predictions):
-            print('{0}: {1}, with distance '
-                  'of {2}'.format(i + 1, game_features.index[idx], dist))
+            print(f'{i + 1}: {game_features.index[idx]}, with chance {dist:.2f}%')
 
-    def predict(self, game_features, game_features_matrix, key):
+    def predict(self, game_features, game_features_matrix, key, n_recommendations=10):
+        """
+        Method used to predict data, based on game features and matrix, made from them
+        Based on K-nearest neighbours algorithm
+        :param n_recommendations:
+        Number of recommendations should be predicted
+        :param game_features:
+        DataFrame with game features. Used for getting index of predicted objects
+        :param game_features_matrix:
+        Csr matrix created from :param game_features
+        :param key:
+        Game title/id or user id that predictions are made for
+        :return:
+        """
         model_knn = NearestNeighbors(metric='cosine', algorithm='brute', n_neighbors=20, n_jobs=-1)
         model_knn.fit(game_features_matrix)
-        n_recommendations = 10
         idx = game_features.index.get_loc(key)
         distances, indices = model_knn.kneighbors(
             game_features_matrix[idx],
@@ -79,6 +89,14 @@ class SteamData(metaclass=DataMeta):
         return raw_recommends
 
     def get_features_matrix(self, index, columns):
+        """
+        Method that creates features matrix for data
+        :param index:
+        For which feature should predictions made for
+        :param columns:
+        On
+        :return:
+        """
         game_features = self._data.pivot(
             index=index,
             columns=columns,
@@ -123,7 +141,7 @@ class SteamData(metaclass=DataMeta):
         games_play_purchase = sorted_rankings[sorted_rankings.loc[:, ['user_id', 'game_title']].duplicated()]
 
         # Drop rows with purchased games, if they have been played
-        final_data = pd.concat([data_with_ranking, games_play_purchase]).drop_duplicates(keep=False)
-        final_data = final_data.drop(['behavior_name', 'value'], axis=1)
+        processed_data = pd.concat([data_with_ranking, games_play_purchase]).drop_duplicates(keep=False)
+        processed_data = processed_data.drop(['behavior_name', 'value'], axis=1)
 
-        return final_data
+        return processed_data
